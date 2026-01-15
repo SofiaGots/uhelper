@@ -1,5 +1,4 @@
 import os
-import anthropic
 from typing import Dict, Any, List
 from src.agents.base_agent import BaseAgent
 from src.models.base import BaseAgentMessage, UniversityInfo
@@ -10,7 +9,6 @@ class UniversityDataAgent(BaseAgent):
 
     def __init__(self):
         super().__init__()
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
         # База данных университетов с реальными требованиями по программам
         self.universities = self._initialize_universities()
 
