@@ -13,10 +13,18 @@
 - **GitHub** - для хостинга репозитория и совместной работы
 - **Python** - основной язык разработки
 - **Telegram Bot API** - для реализации интерфейса
-- **Anthropic API** - для AI-функциональности
+- **Custom OpenAPI compatible sevice** - для AI-функциональности
+```python
+import openai
+
+client = openai.OpenAI(
+    api_key="<значение_API-ключа>",
+    base_url="https://ai.api.cloud.yandex.net/v1",
+    project="<идентификатор_каталога>"
+)
+```
 
 ### 🚫 Запрещенные инструменты
-- **GitHub CLI (gh)** - не используется в проекте
 - Любые инструменты, не указанные в списке разрешенных
 
 ### 📋 Правила работы с Git
