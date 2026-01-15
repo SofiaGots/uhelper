@@ -1,5 +1,6 @@
-import anthropic
 import os
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
 from typing import List, Dict, Any
 from src.agents.base_agent import BaseAgent
 from src.models.base import BaseAgentMessage
@@ -11,7 +12,12 @@ class OrchestratorAgent(BaseAgent):
     def __init__(self, agents: List[BaseAgent]):
         super().__init__()
         self.agents = agents
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        self.llm = ChatOpenAI(
+            model_name="gpt-3.5-turbo",
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            openai_api_base=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            max_tokens=100
+        )
 
     def can_handle(self, intent: str) -> bool:
         return True  # Оркестратор может обрабатывать любые интенты
@@ -42,7 +48,7 @@ class OrchestratorAgent(BaseAgent):
             return self._create_fallback_response(message)
 
     async def _detect_intent(self, message: str, context: Dict[str, Any]) -> str:
-        """Определяет намерение пользователя с помощью Claude AI"""
+        """Определяет намерение пользователя с помощью LangChain"""
 
         prompt = f"""
         Определи намерение пользователя из следующего сообщения.
@@ -54,12 +60,8 @@ class OrchestratorAgent(BaseAgent):
         """
 
         try:
-            response = self.client.messages.create(
-                model="claude-3-haiku-20240307",
-                max_tokens=100,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            intent = response.content[0].text.strip().lower()
+            response = await self.llm.ainvoke([HumanMessage(content=prompt)])
+            intent = response.content.strip().lower()
 
             # Проверяем, что намерение корректное
             valid_intents = ["university_search", "profile_analysis", "timeline_management", "exam_prep", "general_help"]

@@ -1,5 +1,6 @@
 import os
-import anthropic
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage
 from typing import Dict, Any
 from src.agents.base_agent import BaseAgent
 from src.models.base import BaseAgentMessage, UserProfile
@@ -10,7 +11,12 @@ class ProfileAnalyzerAgent(BaseAgent):
 
     def __init__(self):
         super().__init__()
-        self.client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        self.llm = ChatOpenAI(
+            model_name="gpt-3.5-turbo",
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            openai_api_base=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            max_tokens=600
+        )
 
     def can_handle(self, intent: str) -> bool:
         return intent in ["profile_analysis", "recommendations", "fit_assessment"]
@@ -74,12 +80,8 @@ class ProfileAnalyzerAgent(BaseAgent):
         """
 
         try:
-            response = self.client.messages.create(
-                model="claude-3-haiku-20240307",
-                max_tokens=600,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return response.content[0].text
+            response = await self.llm.ainvoke([HumanMessage(content=prompt)])
+            return response.content
         except Exception as e:
             return f"Ошибка анализа профиля: {e}"
 
@@ -101,12 +103,8 @@ class ProfileAnalyzerAgent(BaseAgent):
         """
 
         try:
-            response = self.client.messages.create(
-                model="claude-3-haiku-20240307",
-                max_tokens=600,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return response.content[0].text
+            response = await self.llm.ainvoke([HumanMessage(content=prompt)])
+            return response.content
         except Exception as e:
             return f"Ошибка получения рекомендаций: {e}"
 
@@ -126,12 +124,8 @@ class ProfileAnalyzerAgent(BaseAgent):
         """
 
         try:
-            response = self.client.messages.create(
-                model="claude-3-haiku-20240307",
-                max_tokens=500,
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return response.content[0].text
+            response = await self.llm.ainvoke([HumanMessage(content=prompt)])
+            return response.content
         except Exception as e:
             return f"Ошибка оценки соответствия: {e}"
 

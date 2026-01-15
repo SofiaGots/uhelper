@@ -1,0 +1,14 @@
+[project]
+name = "uhelper"
+version = "0.1.0"
+description = "AI-ассистент для помощи в поступлении в университет"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiogram>=3.24.0",
+    "langchain>=1.2.4",
+    "langchain-openai>=1.1.7",
+    "pydantic>=2.12.5",
+    "python-dotenv>=1.2.1",
+    "requests>=2.32.5",
+]
