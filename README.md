@@ -70,7 +70,7 @@ OPENAI_PROJECT_ID=идентификатор_проекта
 
 ### 3. Запуск бота
 ```bash
-python main.py
+uv run main.py
 ```
 
 ## 💬 Как использовать
