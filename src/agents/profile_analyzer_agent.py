@@ -1,21 +1,25 @@
-import os
-from langchain_openai import ChatOpenAI
+from typing import Any
+
 from langchain_core.messages import HumanMessage
-from typing import Dict, Any
+from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
+
 from src.agents.base_agent import BaseAgent
-from src.models.base import BaseAgentMessage, UserProfile
+from src.config import settings
+from src.models.base import BaseAgentMessage
 
 
 class ProfileAnalyzerAgent(BaseAgent):
     """Агент для анализа профиля студента и рекомендаций"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.llm = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
-            openai_api_key=os.getenv("OPENAI_API_KEY"),
-            openai_api_base=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-            max_tokens=600
+            model_name=settings.openai_model,
+            openai_api_key=SecretStr(settings.openai_api_key),
+            openai_api_base=str(settings.openai_base_url),
+            max_tokens=600,
+            request_timeout=settings.request_timeout_seconds,
         )
 
     def can_handle(self, intent: str) -> bool:
@@ -40,11 +44,11 @@ class ProfileAnalyzerAgent(BaseAgent):
             "agent": self.name,
             "response": response,
             "next_steps": ["profile_analysis", "university_search"],
-            "confidence": 0.85
+            "confidence": 0.85,
         }
         return message
 
-    async def _analyze_profile(self, profile: Dict[str, Any]) -> str:
+    async def _analyze_profile(self, profile: dict[str, Any]) -> str:
         """Анализирует профиль пользователя"""
 
         if not profile:
@@ -81,15 +85,18 @@ class ProfileAnalyzerAgent(BaseAgent):
 
         try:
             response = await self.llm.ainvoke([HumanMessage(content=prompt)])
-            return response.content
+            return str(response.content)
         except Exception as e:
             return f"Ошибка анализа профиля: {e}"
 
-    async def _get_recommendations(self, profile: Dict[str, Any]) -> str:
+    async def _get_recommendations(self, profile: dict[str, Any]) -> str:
         """Дает рекомендации на основе профиля"""
 
         if not profile:
-            return "Пожалуйста, сначала предоставьте информацию о вашем профиле для получения рекомендаций."
+            return (
+                "Пожалуйста, сначала предоставьте информацию о вашем профиле "
+                "для получения рекомендаций."
+            )
 
         prompt = f"""
         На основе профиля студента дай рекомендации по:
@@ -104,11 +111,11 @@ class ProfileAnalyzerAgent(BaseAgent):
 
         try:
             response = await self.llm.ainvoke([HumanMessage(content=prompt)])
-            return response.content
+            return str(response.content)
         except Exception as e:
             return f"Ошибка получения рекомендаций: {e}"
 
-    async def _assess_fit(self, profile: Dict[str, Any], university_query: str) -> str:
+    async def _assess_fit(self, profile: dict[str, Any], university_query: str) -> str:
         """Оценивает соответствие профиля конкретному университету"""
 
         if not profile:
@@ -125,17 +132,17 @@ class ProfileAnalyzerAgent(BaseAgent):
 
         try:
             response = await self.llm.ainvoke([HumanMessage(content=prompt)])
-            return response.content
+            return str(response.content)
         except Exception as e:
             return f"Ошибка оценки соответствия: {e}"
 
-    def calculate_gpa(self, grades: Dict[str, float]) -> float:
+    def calculate_gpa(self, grades: dict[str, float]) -> float:
         """Рассчитывает средний балл"""
         if not grades:
             return 0.0
         return sum(grades.values()) / len(grades)
 
-    def identify_strengths(self, grades: Dict[str, float]) -> list[str]:
+    def identify_strengths(self, grades: dict[str, float]) -> list[str]:
         """Определяет сильные стороны"""
         if not grades:
             return []
@@ -147,7 +154,7 @@ class ProfileAnalyzerAgent(BaseAgent):
 
         return strong_subjects
 
-    def identify_weaknesses(self, grades: Dict[str, float]) -> list[str]:
+    def identify_weaknesses(self, grades: dict[str, float]) -> list[str]:
         """Определяет слабые стороны"""
         if not grades:
             return []

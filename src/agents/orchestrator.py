@@ -1,22 +1,27 @@
-import os
-from langchain_openai import ChatOpenAI
+from collections.abc import Sequence
+from typing import Any
+
 from langchain_core.messages import HumanMessage
-from typing import List, Dict, Any
+from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
+
 from src.agents.base_agent import BaseAgent
+from src.config import settings
 from src.models.base import BaseAgentMessage
 
 
 class OrchestratorAgent(BaseAgent):
     """Главный оркестрационный агент - маршрутизирует запросы к специализированным агентам"""
 
-    def __init__(self, agents: List[BaseAgent]):
+    def __init__(self, agents: Sequence[BaseAgent]) -> None:
         super().__init__()
-        self.agents = agents
+        self.agents = list(agents)
         self.llm = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
-            openai_api_key=os.getenv("OPENAI_API_KEY"),
-            openai_api_base=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
-            max_tokens=100
+            model_name=settings.openai_model,
+            openai_api_key=SecretStr(settings.openai_api_key),
+            openai_api_base=str(settings.openai_base_url),
+            max_tokens=100,
+            request_timeout=settings.request_timeout_seconds,
         )
 
     def can_handle(self, intent: str) -> bool:
@@ -39,7 +44,7 @@ class OrchestratorAgent(BaseAgent):
                     session_id=message.session_id,
                     intent=intent,
                     message=message.message,
-                    context=message.context
+                    context=message.context,
                 )
             )
             return result
@@ -47,12 +52,13 @@ class OrchestratorAgent(BaseAgent):
             # Если подходящего агента нет, возвращаем общий ответ
             return self._create_fallback_response(message)
 
-    async def _detect_intent(self, message: str, context: Dict[str, Any]) -> str:
+    async def _detect_intent(self, message: str, context: dict[str, Any]) -> str:
         """Определяет намерение пользователя с помощью LangChain"""
 
         prompt = f"""
         Определи намерение пользователя из следующего сообщения.
-        Доступные намерения: university_search, profile_analysis, timeline_management, exam_prep, general_help.
+        Доступные намерения:
+        university_search, profile_analysis, timeline_management, exam_prep, general_help.
 
         Сообщение пользователя: "{message}"
 
@@ -61,10 +67,16 @@ class OrchestratorAgent(BaseAgent):
 
         try:
             response = await self.llm.ainvoke([HumanMessage(content=prompt)])
-            intent = response.content.strip().lower()
+            intent = str(response.content).strip().lower()
 
             # Проверяем, что намерение корректное
-            valid_intents = ["university_search", "profile_analysis", "timeline_management", "exam_prep", "general_help"]
+            valid_intents = [
+                "university_search",
+                "profile_analysis",
+                "timeline_management",
+                "exam_prep",
+                "general_help",
+            ]
             if intent in valid_intents:
                 return intent
             else:
@@ -74,7 +86,7 @@ class OrchestratorAgent(BaseAgent):
             print(f"Ошибка определения намерения: {e}")
             return "general_help"
 
-    def _select_best_agent(self, intent: str) -> BaseAgent:
+    def _select_best_agent(self, intent: str) -> BaseAgent | None:
         """Выбирает наиболее подходящего агента для данного намерения"""
         suitable_agents = [agent for agent in self.agents if agent.can_handle(intent)]
 
@@ -99,6 +111,6 @@ class OrchestratorAgent(BaseAgent):
             "agent": self.name,
             "response": fallback_message,
             "next_steps": ["general_help"],
-            "confidence": 0.8
+            "confidence": 0.8,
         }
         return message

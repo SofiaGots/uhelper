@@ -1,16 +1,18 @@
-import os
-from typing import Dict, Any, List
+from typing import Any
+
 from src.agents.base_agent import BaseAgent
-from src.models.base import BaseAgentMessage, UniversityInfo
+from src.models.base import BaseAgentMessage
+
+UniversityRecord = dict[str, Any]
 
 
 class UniversityDataAgent(BaseAgent):
     """Агент для работы с данными университетов"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         # База данных университетов с реальными требованиями по программам
-        self.universities = self._initialize_universities()
+        self.universities: list[UniversityRecord] = self._initialize_universities()
 
     def can_handle(self, intent: str) -> bool:
         return intent in ["university_search", "program_search", "requirements_search"]
@@ -31,7 +33,7 @@ class UniversityDataAgent(BaseAgent):
             "agent": self.name,
             "response": response,
             "next_steps": ["university_search", "profile_analysis"],
-            "confidence": 0.9
+            "confidence": 0.9,
         }
         return message
 
@@ -39,7 +41,7 @@ class UniversityDataAgent(BaseAgent):
         """Поиск университетов по запросу"""
 
         # Фильтруем университеты по запросу
-        filtered_universities = []
+        filtered_universities: list[UniversityRecord] = []
         for uni in self.universities:
             if query.lower() in uni["name"].lower() or query.lower() in uni["city"].lower():
                 filtered_universities.append(uni)
@@ -49,7 +51,9 @@ class UniversityDataAgent(BaseAgent):
             for uni in filtered_universities[:5]:  # Ограничиваем вывод
                 result += f"🏛️ **{uni['name']}** ({uni['city']})\n"
                 result += f"   Программы: {', '.join(uni['programs'][:3])}\n"
-                result += f"   Бюджетные места: от {uni['budget_requirements']['min_score']} баллов\n"
+                result += (
+                    f"   Бюджетные места: от {uni['budget_requirements']['min_score']} баллов\n"
+                )
                 result += f"   Платные места: от {uni['paid_requirements']['min_score']} баллов\n"
                 result += f"   Срок подачи: {uni['application_deadlines']['main']}\n\n"
             return result
@@ -60,7 +64,7 @@ class UniversityDataAgent(BaseAgent):
         """Поиск образовательных программ"""
 
         # Ищем программы по запросу
-        matching_programs = []
+        matching_programs: list[dict[str, Any]] = []
         for uni in self.universities:
             for program in uni["program_details"]:
                 if query.lower() in program["name"].lower():
@@ -100,23 +104,50 @@ class UniversityDataAgent(BaseAgent):
         - Сдавайте предметы, соответствующие выбранной специальности
         """
 
-    def _initialize_universities(self) -> List[Dict[str, Any]]:
+    def _initialize_universities(self) -> list[UniversityRecord]:
         """Инициализирует базу университетов с реальными требованиями"""
         return [
             {
                 "name": "МГУ им. М.В. Ломоносова",
                 "city": "Москва",
-                "programs": ["Математика", "Информатика", "Физика", "Химия", "Экономика", "Журналистика"],
+                "programs": [
+                    "Математика",
+                    "Информатика",
+                    "Физика",
+                    "Химия",
+                    "Экономика",
+                    "Журналистика",
+                ],
                 "budget_requirements": {"min_score": 290},
                 "paid_requirements": {"min_score": 220},
                 "tuition_fee": 350000,
                 "application_deadlines": {"main": "20 июля", "олимпиады": "1 февраля"},
                 "program_details": [
-                    {"name": "Математика", "ege_subjects": ["Математика", "Русский язык", "Физика"], "budget_score": 290, "paid_score": 220},
-                    {"name": "Информатика", "ege_subjects": ["Математика", "Русский язык", "Информатика"], "budget_score": 295, "paid_score": 225},
-                    {"name": "Физика", "ege_subjects": ["Математика", "Русский язык", "Физика"], "budget_score": 285, "paid_score": 215},
-                    {"name": "Экономика", "ege_subjects": ["Математика", "Русский язык", "Обществознание"], "budget_score": 300, "paid_score": 230}
-                ]
+                    {
+                        "name": "Математика",
+                        "ege_subjects": ["Математика", "Русский язык", "Физика"],
+                        "budget_score": 290,
+                        "paid_score": 220,
+                    },
+                    {
+                        "name": "Информатика",
+                        "ege_subjects": ["Математика", "Русский язык", "Информатика"],
+                        "budget_score": 295,
+                        "paid_score": 225,
+                    },
+                    {
+                        "name": "Физика",
+                        "ege_subjects": ["Математика", "Русский язык", "Физика"],
+                        "budget_score": 285,
+                        "paid_score": 215,
+                    },
+                    {
+                        "name": "Экономика",
+                        "ege_subjects": ["Математика", "Русский язык", "Обществознание"],
+                        "budget_score": 300,
+                        "paid_score": 230,
+                    },
+                ],
             },
             {
                 "name": "СПбГУ",
@@ -127,10 +158,25 @@ class UniversityDataAgent(BaseAgent):
                 "tuition_fee": 280000,
                 "application_deadlines": {"main": "25 июля", "олимпиады": "15 февраля"},
                 "program_details": [
-                    {"name": "Информатика", "ege_subjects": ["Математика", "Русский язык", "Информатика"], "budget_score": 280, "paid_score": 210},
-                    {"name": "Юриспруденция", "ege_subjects": ["Обществознание", "Русский язык", "История"], "budget_score": 290, "paid_score": 220},
-                    {"name": "Физика", "ege_subjects": ["Математика", "Русский язык", "Физика"], "budget_score": 275, "paid_score": 205}
-                ]
+                    {
+                        "name": "Информатика",
+                        "ege_subjects": ["Математика", "Русский язык", "Информатика"],
+                        "budget_score": 280,
+                        "paid_score": 210,
+                    },
+                    {
+                        "name": "Юриспруденция",
+                        "ege_subjects": ["Обществознание", "Русский язык", "История"],
+                        "budget_score": 290,
+                        "paid_score": 220,
+                    },
+                    {
+                        "name": "Физика",
+                        "ege_subjects": ["Математика", "Русский язык", "Физика"],
+                        "budget_score": 275,
+                        "paid_score": 205,
+                    },
+                ],
             },
             {
                 "name": "МГТУ им. Н.Э. Баумана",
@@ -141,24 +187,60 @@ class UniversityDataAgent(BaseAgent):
                 "tuition_fee": 320000,
                 "application_deadlines": {"main": "30 июля", "олимпиады": "10 февраля"},
                 "program_details": [
-                    {"name": "Информатика", "ege_subjects": ["Математика", "Русский язык", "Информатика"], "budget_score": 280, "paid_score": 215},
-                    {"name": "Машиностроение", "ege_subjects": ["Математика", "Русский язык", "Физика"], "budget_score": 270, "paid_score": 205},
-                    {"name": "Робототехника", "ege_subjects": ["Математика", "Русский язык", "Физика"], "budget_score": 285, "paid_score": 220}
-                ]
+                    {
+                        "name": "Информатика",
+                        "ege_subjects": ["Математика", "Русский язык", "Информатика"],
+                        "budget_score": 280,
+                        "paid_score": 215,
+                    },
+                    {
+                        "name": "Машиностроение",
+                        "ege_subjects": ["Математика", "Русский язык", "Физика"],
+                        "budget_score": 270,
+                        "paid_score": 205,
+                    },
+                    {
+                        "name": "Робототехника",
+                        "ege_subjects": ["Математика", "Русский язык", "Физика"],
+                        "budget_score": 285,
+                        "paid_score": 220,
+                    },
+                ],
             },
             {
                 "name": "НИУ ВШЭ",
                 "city": "Москва",
-                "programs": ["Экономика", "Менеджмент", "Социология", "Политология", "Юриспруденция"],
+                "programs": [
+                    "Экономика",
+                    "Менеджмент",
+                    "Социология",
+                    "Политология",
+                    "Юриспруденция",
+                ],
                 "budget_requirements": {"min_score": 285},
                 "paid_requirements": {"min_score": 215},
                 "tuition_fee": 380000,
                 "application_deadlines": {"main": "22 июля", "олимпиады": "5 февраля"},
                 "program_details": [
-                    {"name": "Экономика", "ege_subjects": ["Математика", "Русский язык", "Обществознание"], "budget_score": 295, "paid_score": 225},
-                    {"name": "Менеджмент", "ege_subjects": ["Математика", "Русский язык", "Обществознание"], "budget_score": 285, "paid_score": 215},
-                    {"name": "Юриспруденция", "ege_subjects": ["Обществознание", "Русский язык", "История"], "budget_score": 290, "paid_score": 220}
-                ]
+                    {
+                        "name": "Экономика",
+                        "ege_subjects": ["Математика", "Русский язык", "Обществознание"],
+                        "budget_score": 295,
+                        "paid_score": 225,
+                    },
+                    {
+                        "name": "Менеджмент",
+                        "ege_subjects": ["Математика", "Русский язык", "Обществознание"],
+                        "budget_score": 285,
+                        "paid_score": 215,
+                    },
+                    {
+                        "name": "Юриспруденция",
+                        "ege_subjects": ["Обществознание", "Русский язык", "История"],
+                        "budget_score": 290,
+                        "paid_score": 220,
+                    },
+                ],
             },
             {
                 "name": "МФТИ",
@@ -169,10 +251,25 @@ class UniversityDataAgent(BaseAgent):
                 "tuition_fee": 400000,
                 "application_deadlines": {"main": "18 июля", "олимпиады": "25 января"},
                 "program_details": [
-                    {"name": "Прикладная математика", "ege_subjects": ["Математика", "Русский язык", "Физика"], "budget_score": 305, "paid_score": 235},
-                    {"name": "Физика", "ege_subjects": ["Математика", "Русский язык", "Физика"], "budget_score": 300, "paid_score": 230},
-                    {"name": "Информатика", "ege_subjects": ["Математика", "Русский язык", "Информатика"], "budget_score": 310, "paid_score": 240}
-                ]
+                    {
+                        "name": "Прикладная математика",
+                        "ege_subjects": ["Математика", "Русский язык", "Физика"],
+                        "budget_score": 305,
+                        "paid_score": 235,
+                    },
+                    {
+                        "name": "Физика",
+                        "ege_subjects": ["Математика", "Русский язык", "Физика"],
+                        "budget_score": 300,
+                        "paid_score": 230,
+                    },
+                    {
+                        "name": "Информатика",
+                        "ege_subjects": ["Математика", "Русский язык", "Информатика"],
+                        "budget_score": 310,
+                        "paid_score": 240,
+                    },
+                ],
             },
             {
                 "name": "УрФУ",
@@ -183,10 +280,25 @@ class UniversityDataAgent(BaseAgent):
                 "tuition_fee": 180000,
                 "application_deadlines": {"main": "28 июля", "олимпиады": "20 февраля"},
                 "program_details": [
-                    {"name": "Информатика", "ege_subjects": ["Математика", "Русский язык", "Информатика"], "budget_score": 255, "paid_score": 185},
-                    {"name": "Экономика", "ege_subjects": ["Математика", "Русский язык", "Обществознание"], "budget_score": 250, "paid_score": 180},
-                    {"name": "Физика", "ege_subjects": ["Математика", "Русский язык", "Физика"], "budget_score": 245, "paid_score": 175}
-                ]
+                    {
+                        "name": "Информатика",
+                        "ege_subjects": ["Математика", "Русский язык", "Информатика"],
+                        "budget_score": 255,
+                        "paid_score": 185,
+                    },
+                    {
+                        "name": "Экономика",
+                        "ege_subjects": ["Математика", "Русский язык", "Обществознание"],
+                        "budget_score": 250,
+                        "paid_score": 180,
+                    },
+                    {
+                        "name": "Физика",
+                        "ege_subjects": ["Математика", "Русский язык", "Физика"],
+                        "budget_score": 245,
+                        "paid_score": 175,
+                    },
+                ],
             },
             {
                 "name": "НГУ",
@@ -197,10 +309,25 @@ class UniversityDataAgent(BaseAgent):
                 "tuition_fee": 200000,
                 "application_deadlines": {"main": "26 июля", "олимпиады": "18 февраля"},
                 "program_details": [
-                    {"name": "Математика", "ege_subjects": ["Математика", "Русский язык", "Физика"], "budget_score": 265, "paid_score": 195},
-                    {"name": "Биология", "ege_subjects": ["Биология", "Русский язык", "Химия"], "budget_score": 255, "paid_score": 185},
-                    {"name": "Экономика", "ege_subjects": ["Математика", "Русский язык", "Обществознание"], "budget_score": 260, "paid_score": 190}
-                ]
+                    {
+                        "name": "Математика",
+                        "ege_subjects": ["Математика", "Русский язык", "Физика"],
+                        "budget_score": 265,
+                        "paid_score": 195,
+                    },
+                    {
+                        "name": "Биология",
+                        "ege_subjects": ["Биология", "Русский язык", "Химия"],
+                        "budget_score": 255,
+                        "paid_score": 185,
+                    },
+                    {
+                        "name": "Экономика",
+                        "ege_subjects": ["Математика", "Русский язык", "Обществознание"],
+                        "budget_score": 260,
+                        "paid_score": 190,
+                    },
+                ],
             },
             {
                 "name": "ТГУ",
@@ -211,24 +338,59 @@ class UniversityDataAgent(BaseAgent):
                 "tuition_fee": 190000,
                 "application_deadlines": {"main": "27 июля", "олимпиады": "17 февраля"},
                 "program_details": [
-                    {"name": "Информатика", "ege_subjects": ["Математика", "Русский язык", "Информатика"], "budget_score": 260, "paid_score": 190},
-                    {"name": "Психология", "ege_subjects": ["Биология", "Русский язык", "Математика"], "budget_score": 250, "paid_score": 180},
-                    {"name": "Журналистика", "ege_subjects": ["Литература", "Русский язык", "Иностранный язык"], "budget_score": 255, "paid_score": 185}
-                ]
+                    {
+                        "name": "Информатика",
+                        "ege_subjects": ["Математика", "Русский язык", "Информатика"],
+                        "budget_score": 260,
+                        "paid_score": 190,
+                    },
+                    {
+                        "name": "Психология",
+                        "ege_subjects": ["Биология", "Русский язык", "Математика"],
+                        "budget_score": 250,
+                        "paid_score": 180,
+                    },
+                    {
+                        "name": "Журналистика",
+                        "ege_subjects": ["Литература", "Русский язык", "Иностранный язык"],
+                        "budget_score": 255,
+                        "paid_score": 185,
+                    },
+                ],
             },
             {
                 "name": "МГИМО",
                 "city": "Москва",
-                "programs": ["Международные отношения", "Политология", "Юриспруденция", "Экономика"],
+                "programs": [
+                    "Международные отношения",
+                    "Политология",
+                    "Юриспруденция",
+                    "Экономика",
+                ],
                 "budget_requirements": {"min_score": 295},
                 "paid_requirements": {"min_score": 225},
                 "tuition_fee": 420000,
                 "application_deadlines": {"main": "15 июля", "олимпиады": "28 января"},
                 "program_details": [
-                    {"name": "Международные отношения", "ege_subjects": ["История", "Иностранный язык", "Русский язык"], "budget_score": 300, "paid_score": 230},
-                    {"name": "Юриспруденция", "ege_subjects": ["Обществознание", "Русский язык", "История"], "budget_score": 295, "paid_score": 225},
-                    {"name": "Экономика", "ege_subjects": ["Математика", "Иностранный язык", "Русский язык"], "budget_score": 290, "paid_score": 220}
-                ]
+                    {
+                        "name": "Международные отношения",
+                        "ege_subjects": ["История", "Иностранный язык", "Русский язык"],
+                        "budget_score": 300,
+                        "paid_score": 230,
+                    },
+                    {
+                        "name": "Юриспруденция",
+                        "ege_subjects": ["Обществознание", "Русский язык", "История"],
+                        "budget_score": 295,
+                        "paid_score": 225,
+                    },
+                    {
+                        "name": "Экономика",
+                        "ege_subjects": ["Математика", "Иностранный язык", "Русский язык"],
+                        "budget_score": 290,
+                        "paid_score": 220,
+                    },
+                ],
             },
             {
                 "name": "РЭУ им. Г.В. Плеханова",
@@ -239,9 +401,24 @@ class UniversityDataAgent(BaseAgent):
                 "tuition_fee": 280000,
                 "application_deadlines": {"main": "23 июля", "олимпиады": "14 февраля"},
                 "program_details": [
-                    {"name": "Экономика", "ege_subjects": ["Математика", "Русский язык", "Обществознание"], "budget_score": 275, "paid_score": 205},
-                    {"name": "Маркетинг", "ege_subjects": ["Математика", "Русский язык", "Обществознание"], "budget_score": 270, "paid_score": 200},
-                    {"name": "Финансы", "ege_subjects": ["Математика", "Русский язык", "Обществознание"], "budget_score": 280, "paid_score": 210}
-                ]
-            }
+                    {
+                        "name": "Экономика",
+                        "ege_subjects": ["Математика", "Русский язык", "Обществознание"],
+                        "budget_score": 275,
+                        "paid_score": 205,
+                    },
+                    {
+                        "name": "Маркетинг",
+                        "ege_subjects": ["Математика", "Русский язык", "Обществознание"],
+                        "budget_score": 270,
+                        "paid_score": 200,
+                    },
+                    {
+                        "name": "Финансы",
+                        "ege_subjects": ["Математика", "Русский язык", "Обществознание"],
+                        "budget_score": 280,
+                        "paid_score": 210,
+                    },
+                ],
+            },
         ]

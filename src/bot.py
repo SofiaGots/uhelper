@@ -1,35 +1,47 @@
-import os
 import asyncio
-from aiogram import Bot, Dispatcher, types
+from typing import Any, TypedDict
+
+from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.types import Message
+
+from src.agents.base_agent import BaseAgent
 from src.agents.orchestrator import OrchestratorAgent
-from src.agents.university_data_agent import UniversityDataAgent
 from src.agents.profile_analyzer_agent import ProfileAnalyzerAgent
+from src.agents.university_data_agent import UniversityDataAgent
+from src.config import settings
 from src.models.base import BaseAgentMessage
+
+
+class SessionState(TypedDict):
+    """Состояние сессии пользователя."""
+
+    session_id: str
+    conversation_history: list[dict[str, str]]
+    user_profile: dict[str, Any]
 
 
 class UHelperBot:
     """Основной класс Telegram-бота на базе aiogram"""
 
-    def __init__(self):
-        self.token = os.getenv("TELEGRAM_BOT_TOKEN")
-        self.bot = None
-        self.dp = None
-        self.orchestrator = None
+    def __init__(self) -> None:
+        self.token = settings.telegram_bot_token
+        self.bot: Bot | None = None
+        self.dp: Dispatcher | None = None
+        self.orchestrator: OrchestratorAgent | None = None
 
         # Инициализируем сессии пользователей
-        self.user_sessions = {}
+        self.user_sessions: dict[int, SessionState] = {}
 
-    def initialize_agents(self):
+    def initialize_agents(self) -> None:
         """Инициализирует всех агентов"""
         university_agent = UniversityDataAgent()
         profile_agent = ProfileAnalyzerAgent()
 
-        agents = [university_agent, profile_agent]
+        agents: list[BaseAgent] = [university_agent, profile_agent]
         self.orchestrator = OrchestratorAgent(agents)
 
-    async def start_command(self, message: Message):
+    async def start_command(self, message: Message) -> None:
         """Обрабатывает команду /start"""
         welcome_message = """
         👋 Привет! Я AI-ассистент для помощи в поступлении в университет.
@@ -49,17 +61,20 @@ class UHelperBot:
 
         await message.answer(welcome_message)
 
-    async def handle_message(self, message: Message):
+    async def handle_message(self, message: Message) -> None:
         """Обрабатывает текстовые сообщения пользователя"""
         user = message.from_user
-        message_text = message.text
+        if user is None:
+            return
+
+        message_text = message.text or ""
 
         # Получаем или создаем сессию пользователя
         if user.id not in self.user_sessions:
             self.user_sessions[user.id] = {
                 "session_id": str(user.id),
                 "conversation_history": [],
-                "user_profile": {}
+                "user_profile": {},
             }
 
         session = self.user_sessions[user.id]
@@ -72,30 +87,37 @@ class UHelperBot:
             message=message_text,
             context={
                 "user_profile": session["user_profile"],
-                "conversation_history": session["conversation_history"]
-            }
+                "conversation_history": session["conversation_history"],
+            },
         )
 
         # Обрабатываем сообщение через оркестратор
         try:
+            if self.orchestrator is None:
+                raise RuntimeError("Orchestrator is not initialized")
+
             result = await self.orchestrator.process(agent_message)
 
             # Обновляем контекст
-            session["conversation_history"].append({
-                "user": message_text,
-                "agent": result.agent_response["agent"],
-                "response": result.agent_response["response"]
-            })
+            if result.agent_response:
+                agent_response = result.agent_response
+                session["conversation_history"].append(
+                    {
+                        "user": message_text,
+                        "agent": str(agent_response.get("agent", "-")),
+                        "response": str(agent_response.get("response", "-")),
+                    }
+                )
 
-            # Отправляем ответ пользователю
-            await message.answer(result.agent_response["response"])
+                # Отправляем ответ пользователю
+                await message.answer(str(agent_response.get("response", "")))
 
         except Exception as e:
             error_message = "Извините, произошла ошибка. Попробуйте позже."
             await message.answer(error_message)
             print(f"Ошибка обработки сообщения: {e}")
 
-    async def help_command(self, message: Message):
+    async def help_command(self, message: Message) -> None:
         """Обрабатывает команду /help"""
         help_text = """
         📚 **Команды бота:**
@@ -113,7 +135,7 @@ class UHelperBot:
         """
         await message.answer(help_text)
 
-    async def profile_command(self, message: Message):
+    async def profile_command(self, message: Message) -> None:
         """Обрабатывает команду /profile"""
         profile_instructions = """
         📊 **Анализ профиля**
@@ -131,11 +153,12 @@ class UHelperBot:
         - Предпочтительные города/университеты
 
         💬 **Пример:**
-        "У меня 5 по математике, 4 по физике, интересуюсь программированием, хочу поступить в Москве"
+        "У меня 5 по математике, 4 по физике, интересуюсь программированием,
+        хочу поступить в Москве"
         """
         await message.answer(profile_instructions)
 
-    async def universities_command(self, message: Message):
+    async def universities_command(self, message: Message) -> None:
         """Обрабатывает команду /universities"""
         universities_help = """
         🏛️ **Поиск университетов**
@@ -152,15 +175,18 @@ class UHelperBot:
         """
         await message.answer(universities_help)
 
-    async def setup_handlers(self):
+    async def setup_handlers(self) -> None:
         """Настраивает обработчики команд"""
+        if self.dp is None:
+            raise RuntimeError("Dispatcher is not initialized")
+
         self.dp.message.register(self.start_command, Command("start"))
         self.dp.message.register(self.help_command, Command("help"))
         self.dp.message.register(self.profile_command, Command("profile"))
         self.dp.message.register(self.universities_command, Command("universities"))
         self.dp.message.register(self.handle_message)
 
-    async def run(self):
+    async def run(self) -> None:
         """Запускает бота"""
         if not self.token:
             print("❌ Ошибка: TELEGRAM_BOT_TOKEN не установлен")
