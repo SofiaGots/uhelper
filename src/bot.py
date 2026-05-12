@@ -1,16 +1,25 @@
 import asyncio
+import logging
+import socket
 from typing import Any, TypedDict
 
+import aiohttp
 from aiogram import Bot, Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.filters import Command
 from aiogram.types import Message
+from pydantic import ValidationError
 
 from src.agents.base_agent import BaseAgent
+from src.agents.exceptions import SAFE_USER_MESSAGE, log_agent_error
 from src.agents.orchestrator import OrchestratorAgent
 from src.agents.profile_analyzer_agent import ProfileAnalyzerAgent
 from src.agents.university_data_agent import UniversityDataAgent
 from src.config import settings
 from src.models.base import BaseAgentMessage
+from src.utils.rate_limiter import RateLimiter
+
+logger = logging.getLogger(__name__)
 
 
 class SessionState(TypedDict):
@@ -29,6 +38,10 @@ class UHelperBot:
         self.bot: Bot | None = None
         self.dp: Dispatcher | None = None
         self.orchestrator: OrchestratorAgent | None = None
+        self.rate_limiter = RateLimiter(
+            limit=settings.rate_limit_messages,
+            window_seconds=settings.rate_limit_window_seconds,
+        )
 
         # Инициализируем сессии пользователей
         self.user_sessions: dict[int, SessionState] = {}
@@ -68,6 +81,13 @@ class UHelperBot:
             return
 
         message_text = message.text or ""
+        rate_limit = await self.rate_limiter.check(str(user.id))
+        if not rate_limit.allowed:
+            await message.answer(
+                "Слишком много сообщений подряд. "
+                f"Попробуйте снова через {rate_limit.retry_after_seconds} сек."
+            )
+            return
 
         # Получаем или создаем сессию пользователя
         if user.id not in self.user_sessions:
@@ -79,20 +99,20 @@ class UHelperBot:
 
         session = self.user_sessions[user.id]
 
-        # Создаем сообщение для агента
-        agent_message = BaseAgentMessage(
-            user_id=str(user.id),
-            session_id=session["session_id"],
-            intent="",  # Будет определено оркестратором
-            message=message_text,
-            context={
-                "user_profile": session["user_profile"],
-                "conversation_history": session["conversation_history"],
-            },
-        )
-
         # Обрабатываем сообщение через оркестратор
         try:
+            # Создаем сообщение для агента
+            agent_message = BaseAgentMessage(
+                user_id=str(user.id),
+                session_id=session["session_id"],
+                intent="",  # Будет определено оркестратором
+                message=message_text,
+                context={
+                    "user_profile": session["user_profile"],
+                    "conversation_history": session["conversation_history"],
+                },
+            )
+
             if self.orchestrator is None:
                 raise RuntimeError("Orchestrator is not initialized")
 
@@ -112,10 +132,14 @@ class UHelperBot:
                 # Отправляем ответ пользователю
                 await message.answer(str(agent_response.get("response", "")))
 
+        except ValidationError:
+            await message.answer(
+                "Сообщение должно быть непустым, до 2000 символов, на русском или английском."
+            )
         except Exception as e:
-            error_message = "Извините, произошла ошибка. Попробуйте позже."
-            await message.answer(error_message)
-            print(f"Ошибка обработки сообщения: {e}")
+            session_id = session.get("session_id", "-")
+            log_agent_error(e, {"session_id": session_id, "intent": message_text, "agent": "bot"})
+            await message.answer(SAFE_USER_MESSAGE)
 
     async def help_command(self, message: Message) -> None:
         """Обрабатывает команду /help"""
@@ -175,6 +199,12 @@ class UHelperBot:
         """
         await message.answer(universities_help)
 
+    async def health_command(self, message: Message) -> None:
+        from src.healthcheck import format_healthcheck, run_healthcheck
+
+        result = await run_healthcheck()
+        await message.answer(f"<code>{format_healthcheck(result)}</code>", parse_mode="HTML")
+
     async def setup_handlers(self) -> None:
         """Настраивает обработчики команд"""
         if self.dp is None:
@@ -184,6 +214,7 @@ class UHelperBot:
         self.dp.message.register(self.help_command, Command("help"))
         self.dp.message.register(self.profile_command, Command("profile"))
         self.dp.message.register(self.universities_command, Command("universities"))
+        self.dp.message.register(self.health_command, Command("health"))
         self.dp.message.register(self.handle_message)
 
     async def run(self) -> None:
@@ -192,8 +223,13 @@ class UHelperBot:
             print("❌ Ошибка: TELEGRAM_BOT_TOKEN не установлен")
             return
 
-        # Инициализируем бота и диспетчер
-        self.bot = Bot(token=self.token)
+        # Инициализируем бота с кастомным DNS resolver и HTTP proxy
+        resolver = aiohttp.AsyncResolver(nameservers=["1.1.1.1", "8.8.8.8"])
+        proxy_url = "http://sofa:1234567890@vpn.gots.ru:8888"
+        session = HttpProxyAiohttpSession(http_proxy=proxy_url)
+        session._connector_init["resolver"] = resolver
+        session._connector_init["family"] = socket.AF_INET
+        self.bot = Bot(token=self.token, session=session)
         self.dp = Dispatcher()
 
         # Инициализируем агентов
@@ -205,6 +241,29 @@ class UHelperBot:
         # Запускаем бота
         print("🚀 Бот запущен...")
         await self.dp.start_polling(self.bot)
+
+
+class HttpProxyAiohttpSession(AiohttpSession):
+    def __init__(self, http_proxy: str, **kwargs: object) -> None:
+        super().__init__(**kwargs)
+        self._http_proxy = http_proxy
+
+    async def create_session(self) -> aiohttp.ClientSession:
+        if self._should_reset_connector:
+            await self.close()
+
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                connector=self._connector_type(**self._connector_init),
+                headers={
+                    "User-Agent": f"Python aiohttp/{aiohttp.__version__} "
+                    f"aiogram/{__import__('aiogram').__version__}",
+                },
+                proxy=self._http_proxy,
+            )
+            self._should_reset_connector = False
+
+        return self._session
 
 
 if __name__ == "__main__":

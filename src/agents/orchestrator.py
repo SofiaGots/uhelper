@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Sequence
 from typing import Any
 
@@ -8,6 +9,8 @@ from pydantic import SecretStr
 from src.agents.base_agent import BaseAgent
 from src.config import settings
 from src.models.base import BaseAgentMessage
+
+logger = logging.getLogger(__name__)
 
 
 class OrchestratorAgent(BaseAgent):
@@ -28,16 +31,11 @@ class OrchestratorAgent(BaseAgent):
         return True  # Оркестратор может обрабатывать любые интенты
 
     async def process(self, message: BaseAgentMessage) -> BaseAgentMessage:
-        """Определяет намерение и маршрутизирует к соответствующему агенту"""
+        intent = await self._detect_intent(message.message, message.context, message.session_id)
 
-        # Определяем намерение с помощью AI
-        intent = await self._detect_intent(message.message, message.context)
-
-        # Находим подходящего агента
         best_agent = self._select_best_agent(intent)
 
         if best_agent:
-            # Перенаправляем сообщение агенту
             result = await best_agent.process(
                 BaseAgentMessage(
                     user_id=message.user_id,
@@ -49,12 +47,11 @@ class OrchestratorAgent(BaseAgent):
             )
             return result
         else:
-            # Если подходящего агента нет, возвращаем общий ответ
             return self._create_fallback_response(message)
 
-    async def _detect_intent(self, message: str, context: dict[str, Any]) -> str:
-        """Определяет намерение пользователя с помощью LangChain"""
-
+    async def _detect_intent(
+        self, message: str, context: dict[str, Any], session_id: str = "-"
+    ) -> str:
         prompt = f"""
         Определи намерение пользователя из следующего сообщения.
         Доступные намерения:
@@ -66,10 +63,11 @@ class OrchestratorAgent(BaseAgent):
         """
 
         try:
-            response = await self.llm.ainvoke([HumanMessage(content=prompt)])
+            response = await self._call_llm_with_retry(
+                lambda: self.llm.ainvoke([HumanMessage(content=prompt)])
+            )
             intent = str(response.content).strip().lower()
 
-            # Проверяем, что намерение корректное
             valid_intents = [
                 "university_search",
                 "profile_analysis",
@@ -77,13 +75,15 @@ class OrchestratorAgent(BaseAgent):
                 "exam_prep",
                 "general_help",
             ]
-            if intent in valid_intents:
-                return intent
-            else:
-                return "general_help"
+            return intent if intent in valid_intents else "general_help"
 
         except Exception as e:
-            print(f"Ошибка определения намерения: {e}")
+            logger.exception(
+                "Intent detection failed [session=%s] %s",
+                session_id,
+                e,
+                extra={"session_id": session_id, "intent": "general_help", "agent": self.name},
+            )
             return "general_help"
 
     def _select_best_agent(self, intent: str) -> BaseAgent | None:
