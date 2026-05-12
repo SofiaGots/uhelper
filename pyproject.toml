@@ -5,13 +5,16 @@ description = "AI-ассистент для помощи в поступлени
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "aiodns>=3.0.0",
     "aiogram>=3.24.0",
+    "aiohttp-socks>=0.10.0",
     "langchain>=1.2.4",
     "langchain-openai>=1.1.7",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.2.1",
     "python-dotenv>=1.2.1",
     "requests>=2.32.5",
+    "sqlalchemy>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -38,7 +41,7 @@ extend-exclude = ["venv", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ASYNC", "ANN"]
-ignore = ["ANN101", "ANN102"]
+ignore = ["ANN101", "ANN102", "ANN401"]
 
 [tool.ruff.format]
 quote-style = "double"

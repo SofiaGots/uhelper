@@ -1,6 +1,8 @@
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+from src.utils.text_sanitizer import sanitize_user_text
 
 
 class BaseAgentMessage(BaseModel):
@@ -12,6 +14,23 @@ class BaseAgentMessage(BaseModel):
     message: str
     context: dict[str, Any]
     agent_response: dict[str, Any] | None = None
+
+    @field_validator("message", mode="before")
+    @classmethod
+    def validate_message(cls, value: str) -> str:
+        """Валидирует и очищает пользовательский текст.
+
+        Args:
+            value: Сырой текст сообщения.
+
+        Returns:
+            Очищенный текст.
+
+        Raises:
+            ValueError: Если текст пустой или язык не поддерживается.
+        """
+
+        return sanitize_user_text(str(value))
 
 
 class UserProfile(BaseModel):

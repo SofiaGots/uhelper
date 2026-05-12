@@ -4,20 +4,21 @@ UHelper - AI-ассистент для поступления в универс�
 Главный файл запуска приложения
 """
 
+import asyncio
+
 from dotenv import load_dotenv
 
 from src.bot import UHelperBot
 from src.config import get_settings
+from src.healthcheck import format_healthcheck, run_healthcheck
 from src.utils.logging_config import setup_logging
 
 
 def main() -> None:
     """Основная функция запуска приложения"""
 
-    # Загружаем переменные окружения
     load_dotenv()
 
-    # Валидация конфигурации через Pydantic Settings
     try:
         get_settings()
     except RuntimeError as exc:
@@ -27,14 +28,14 @@ def main() -> None:
 
     setup_logging()
 
+    hc = asyncio.run(run_healthcheck())
+    print(format_healthcheck(hc))
+
     print("🚀 Запуск UHelper - AI-ассистента для поступления")
     print("📚 Подготовка к запуску бота...")
 
     try:
-        # Создаем и запускаем бота
         bot = UHelperBot()
-        import asyncio
-
         asyncio.run(bot.run())
     except Exception as e:
         print(f"❌ Ошибка при запуске бота: {e}")

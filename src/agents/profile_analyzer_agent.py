@@ -49,8 +49,6 @@ class ProfileAnalyzerAgent(BaseAgent):
         return message
 
     async def _analyze_profile(self, profile: dict[str, Any]) -> str:
-        """Анализирует профиль пользователя"""
-
         if not profile:
             return """
             Чтобы проанализировать ваш профиль, мне нужна информация о вас.
@@ -84,14 +82,14 @@ class ProfileAnalyzerAgent(BaseAgent):
         """
 
         try:
-            response = await self.llm.ainvoke([HumanMessage(content=prompt)])
+            response = await self._call_llm_with_retry(
+                lambda: self.llm.ainvoke([HumanMessage(content=prompt)])
+            )
             return str(response.content)
         except Exception as e:
-            return f"Ошибка анализа профиля: {e}"
+            return self._safe_handle_error(e)
 
     async def _get_recommendations(self, profile: dict[str, Any]) -> str:
-        """Дает рекомендации на основе профиля"""
-
         if not profile:
             return (
                 "Пожалуйста, сначала предоставьте информацию о вашем профиле "
@@ -110,14 +108,14 @@ class ProfileAnalyzerAgent(BaseAgent):
         """
 
         try:
-            response = await self.llm.ainvoke([HumanMessage(content=prompt)])
+            response = await self._call_llm_with_retry(
+                lambda: self.llm.ainvoke([HumanMessage(content=prompt)])
+            )
             return str(response.content)
         except Exception as e:
-            return f"Ошибка получения рекомендаций: {e}"
+            return self._safe_handle_error(e)
 
     async def _assess_fit(self, profile: dict[str, Any], university_query: str) -> str:
-        """Оценивает соответствие профиля конкретному университету"""
-
         if not profile:
             return "Пожалуйста, сначала предоставьте информацию о вашем профиле."
 
@@ -131,10 +129,12 @@ class ProfileAnalyzerAgent(BaseAgent):
         """
 
         try:
-            response = await self.llm.ainvoke([HumanMessage(content=prompt)])
+            response = await self._call_llm_with_retry(
+                lambda: self.llm.ainvoke([HumanMessage(content=prompt)])
+            )
             return str(response.content)
         except Exception as e:
-            return f"Ошибка оценки соответствия: {e}"
+            return self._safe_handle_error(e)
 
     def calculate_gpa(self, grades: dict[str, float]) -> float:
         """Рассчитывает средний балл"""
