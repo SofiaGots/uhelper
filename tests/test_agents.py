@@ -50,9 +50,16 @@ async def test_orchestrator_routes_to_matching_agent(fake_intent_llm: FakeLLM) -
 @pytest.mark.asyncio
 async def test_university_agent_filters_by_city() -> None:
     agent = UniversityDataAgent()
-    response = await agent._search_universities("Москва")
+    response = agent._search_universities("Москва")
     assert "Москва" in response
-    assert "🏛️" in response
+    assert (
+        "МГУ" in response
+        or "МГТУ" in response
+        or "МГИМО" in response
+        or "ВШЭ" in response
+        or "МФТИ" in response
+        or "РЭУ" in response
+    )
 
 
 def test_profile_gpa_and_strengths(fake_profile_llm: FakeLLM) -> None:
