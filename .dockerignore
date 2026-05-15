@@ -1,0 +1,19 @@
+.env
+.env.example
+.git/
+.gitignore
+.venv/
+.uv-cache/
+.ruff_cache/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+.idea/
+README.md
+AGENTS.md
+Паспорт ИВР _2025.md
+docs/
+tests/
+uhelper.db
+docker-compose.yml

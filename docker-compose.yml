@@ -1,0 +1,22 @@
+services:
+  bot:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - uhelper_data:/app/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    profiles:
+      - with-redis
+
+volumes:
+  uhelper_data:
