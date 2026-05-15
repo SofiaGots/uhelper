@@ -124,6 +124,7 @@ class UHelperBot:
                 session["conversation_history"].append(
                     {
                         "user": message_text,
+                        "intent": result.intent,
                         "agent": str(agent_response.get("agent", "-")),
                         "response": str(agent_response.get("response", "-")),
                     }
