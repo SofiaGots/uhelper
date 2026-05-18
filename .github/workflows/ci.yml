@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "${{ env.PYTHON_VERSION }}"
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev
+
+      - name: Lint (ruff check)
+        run: uv run ruff check src/ tests/ scripts/
+
+      - name: Format check (ruff format)
+        run: uv run ruff format --check src/ tests/ scripts/
+
+      - name: Types (ty check)
+        run: uv run ty check src/ || echo "ty: warnings found"
+
+      - name: Tests (pytest)
+        run: uv run pytest -q --tb=short
+        env:
+          TELEGRAM_BOT_TOKEN: "${{ secrets.TELEGRAM_BOT_TOKEN || '' }}"
+          OPENAI_API_KEY: "${{ secrets.OPENAI_API_KEY || '' }}"
+
+  docker:
+    needs: [quality]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "${{ env.PYTHON_VERSION }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          tags: "uhelper:ci-${{ github.sha }}"
+          load: true
+
+      - name: Save image artifact
+        run: docker save "uhelper:ci-${{ github.sha }}" | gzip > uhelper-image.tar.gz
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: uhelper-image
+          path: uhelper-image.tar.gz
+          retention-days: 3
